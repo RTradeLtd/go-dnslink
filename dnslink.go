@@ -52,6 +52,7 @@ import (
 	"strings"
 
 	isd "github.com/RTradeLtd/go-is-domain"
+	"github.com/lixiangzhong/dnsutil"
 )
 
 // DefaultDepthLimit controls how many dns links to resolve through before
@@ -99,6 +100,37 @@ func Resolve(domain string) (string, error) {
 // resolution depth.
 func ResolveN(domain string, depth int) (string, error) {
 	return defaultResolver.ResolveN(domain, depth)
+}
+
+// ResolveWithTTL is just like Resolve, but will also return ttl
+// of the record in seconds
+func ResolveWithTTL(domain string, dnsServers ...string) (string, uint32, error) {
+	var (
+		dig        dnsutil.Dig
+		defaultDNS = "8.8.8.8"
+	)
+	// set dns servers used for ttl query
+	// if too many, or no args provided default to google
+	if len(dnsServers) == 1 {
+		dig.SetDNS(dnsServers[0])
+	} else if len(dnsServers) == 2 {
+		dig.SetDNS(dnsServers[0])
+		dig.SetBackupDNS(dnsServers[1])
+	} else {
+		dig.SetDNS(defaultDNS)
+	}
+	// lookup the dnslink record
+	dnsLinkRecord, err := defaultResolver.Resolve(domain)
+	if err != nil {
+		return "", 0, err
+	}
+	// lookup the txt record to extract ttl
+	records, err := dig.TXT(domain)
+	if err != nil {
+		return "", 0, ErrResolveFailed
+	}
+	// return dnslink record, and ttl
+	return dnsLinkRecord, records[0].Hdr.Ttl, nil
 }
 
 // Resolver implements a dnslink Resolver on DNS domains.

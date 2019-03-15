@@ -5,6 +5,11 @@ import (
 	"testing"
 )
 
+var (
+	GoogleDNS  = "8.8.8.8"
+	QuadOneDNS = "1.1.1.1"
+)
+
 type mockDNS struct {
 	entries map[string][]string
 }
@@ -35,6 +40,37 @@ func TestDNSLink(t *testing.T) {
 	}
 	if _, err := Resolve("_dnslink.libp2p.io"); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestResolveWithTTL(t *testing.T) {
+	type args struct {
+		dns    []string
+		domain string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{"One-Server", args{
+			[]string{GoogleDNS}, "_dnslink.libp2p.io"}, false,
+		},
+		{"Two-Server", args{
+			[]string{GoogleDNS, QuadOneDNS}, "_dnslink.libp2p.io"}, false,
+		},
+		{"No-Server", args{[]string{}, "_dnslink.libp2p.io"}, false},
+		{"Bad-Domain", args{[]string{}, "foobar.baz"}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, _, err := ResolveWithTTL(
+				tt.args.domain,
+				tt.args.dns...,
+			); (err != nil) != tt.wantErr {
+				t.Fatalf("ResolveWithTTL wantErr = %v, err %v", tt.wantErr, err)
+			}
+		})
 	}
 }
 
